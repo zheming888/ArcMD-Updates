@@ -1,0 +1,35 @@
+name: Publish installer
+on:
+  push:
+    branches: [main]
+    paths: ['Downloads/**', '.github/workflows/publish.yml', 'RELEASE_NOTES.md']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: publish-installer
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Verify installer and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd Downloads
+          sha256sum --check SHA256SUMS.txt
+          cd ..
+          TAG=v1.5.1
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "ArcMD 1.5.1 · DMG 安装包" --notes-file RELEASE_NOTES.md
+          fi
+          gh release upload "$TAG" Downloads/ArcMD-1.5.1-macOS27-arm64.dmg Downloads/SHA256SUMS.txt --clobber
+          gh release edit "$TAG" --draft=false --latest --notes-file RELEASE_NOTES.md --target "$GITHUB_SHA"
